@@ -3,6 +3,7 @@ import argparse
 import numpy as np
 import torch
 import torch.multiprocessing as mp
+import mlflow
 from datasets import TrainDataset, TrainDataset_real, TrainDataset_real_paired, ValDataset, ValDataset_real
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -235,6 +236,7 @@ class Trainer:
             sys.stdout.write(f"\r[{epoch},{step}] loss {loss.item():.4f} l1 loss {l1_loss.item():.4f} other loss {loss1.item():.4f} loss2 {loss2.item():.4f}")
             # sys.stdout.write(f"\r[{epoch},{step}] loss {loss.item():.4f} l1 loss {l1_loss.item():.4f} other loss {other_loss.item():.4f} loss2 {loss2.item():.4f} vif loss {vif_loss.item():.4f}")
             sys.stdout.flush()
+            mlflow.log_metric("loss", loss.item(), step)
         if "tb_writer" in self.config and self.config["tb_writer"] is not None:
             self.config["tb_writer"].add_scalar("loss/train", loss, step)
             self.config["tb_writer"].add_scalar("L1 loss/train", l1_loss, step)
@@ -243,6 +245,10 @@ class Trainer:
             self.config["tb_writer"].add_scalar("LowBandEntropyLoss loss/train", loss2, step)
 
     def train(self, rank, world_size):
+
+        if self.rank == 0:
+            mlflow.start_run()
+            mlflow.log_params({k: (v if not isinstance(v, dict) else str(v)) for k, v in self.config.items()})
 
         epoch_start = 0
         step_start = 0
@@ -374,7 +380,10 @@ class Trainer:
             self.config["tb_writer"].add_scalar("Loss/val", avg_loss, step)
             self.config["tb_writer"].add_scalar("PSNR/val", avg_psnr, step)
             self.config["tb_writer"].add_scalar("SSIM/val", avg_ssim, step)
-
+        if self.rank == 0:
+            mlflow.log_metric("val_loss", avg_loss, step)
+            mlflow.log_metric("val_psnr", avg_psnr, step)
+            mlflow.log_metric("val_ssim", avg_ssim, step)
         # log
         output_dir = self.config["output_dir"]
         log_str = f"epoch {epoch} step {step} val loss: {avg_loss:.4f}, psnr: {avg_psnr:.4f}, ssim: {avg_ssim:.4f}\n"
@@ -384,6 +393,8 @@ class Trainer:
         snapshot_filename = "step_{}.pth".format(step)
         snapshot_path = os.path.join(output_dir, snapshot_filename)
         save_checkpoint(snapshot_path, self.model, self.optimizer, self.scheduler, epoch, step, l1_loss)
+        if self.rank == 0:
+            mlflow.log_artifact(snapshot_path)
         # torch.save(model.state_dict(), snapshot_path, f'epoch-{epoch}.pth')
         # save best weights
         if "best_psnr" not in self.config or avg_psnr >= self.config["best_psnr"]:
@@ -451,6 +462,10 @@ class Trainer:
             self.config["tb_writer"].add_scalar("Loss/val", avg_loss, step)
             self.config["tb_writer"].add_scalar("PSNR/val", avg_psnr, step)
             self.config["tb_writer"].add_scalar("SSIM/val", avg_ssim, step)
+        if self.rank == 0:
+            mlflow.log_metric("val_loss", avg_loss, step)
+            mlflow.log_metric("val_psnr", avg_psnr, step)
+            mlflow.log_metric("val_ssim", avg_ssim, step)
 
         # log
         output_dir = self.config["output_dir"]
@@ -461,6 +476,8 @@ class Trainer:
         snapshot_filename = "step_{}.pth".format(step)
         snapshot_path = os.path.join(output_dir, snapshot_filename)
         save_checkpoint(snapshot_path, self.model, self.optimizer, self.scheduler, epoch, step, l1_loss)
+        if self.rank == 0:
+            mlflow.log_artifact(snapshot_path)
         # torch.save(model.state_dict(), snapshot_path, f'epoch-{epoch}.pth')
         # save best weights
         if "best_psnr" not in self.config or avg_psnr >= self.config["best_psnr"]:
