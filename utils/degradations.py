@@ -6,6 +6,7 @@ import torch
 from scipy import special
 from scipy.stats import multivariate_normal
 from torchvision.transforms.functional_tensor import rgb_to_grayscale
+from typing import Literal
 
 # -------------------------------------------------------------------- #
 # --------------------------- blur kernels --------------------------- #
@@ -81,7 +82,7 @@ def cdf2(d_matrix, grid):
     return cdf
 
 
-def bivariate_Gaussian(kernel_size, sig_x, sig_y, theta, grid=None, isotropic=True):
+def bivariate_Gaussian(kernel_size: int, sig_x, sig_y, theta, grid=None, isotropic=True):
     """Generate a bivariate isotropic or anisotropic Gaussian kernel.
 
     In the isotropic mode, only `sig_x` is used. `sig_y` and `theta` is ignored.
@@ -324,9 +325,9 @@ def random_bivariate_plateau(kernel_size,
     return kernel
 
 
-def random_mixed_kernels(kernel_list,
-                         kernel_prob,
-                         kernel_size=21,
+def random_mixed_kernels(kernel_list: list[Literal['iso', 'aniso', 'generalized_iso', 'generalized_aniso', 'plateau_iso', 'plateau_aniso']],
+                         kernel_prob: list[float],
+                         kernel_size: int = 21,
                          sigma_x_range=(0.6, 5),
                          sigma_y_range=(0.6, 5),
                          rotation_range=(-math.pi, math.pi),
@@ -389,7 +390,7 @@ def random_mixed_kernels(kernel_list,
 np.seterr(divide='ignore', invalid='ignore')
 
 
-def circular_lowpass_kernel(cutoff, kernel_size, pad_to=0):
+def circular_lowpass_kernel(cutoff: float, kernel_size: int, pad_to=0):
     """2D sinc filter, ref: https://dsp.stackexchange.com/questions/58301/2-d-circularly-symmetric-low-pass-filter
 
     Args:

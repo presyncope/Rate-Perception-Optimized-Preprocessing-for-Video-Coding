@@ -279,9 +279,23 @@ def anime_val_degradation(img_H, sf=2, gaussion_noise_max=0.08, enhance_hr=False
 
     return img_H, img_L
 
-
+# -----------------------------------------------------------------------------------
+# Real-ESRGAN 논문 매칭 주석 버전
+# -----------------------------------------------------------------------------------
+#  ⬇️ 각 블록 옆 주석에 논문에서 해당 기능이 설명된 위치를 표시했습니다.
+#    • Sec.3.1  : “Classical degradation model” (Blur ▸ Resize ▸ Noise ▸ JPEG)        :contentReference[oaicite:0]{index=0}
+#    • Sec.3.2  : “High-order (2-order) degradation model” - Figure 2 파이프라인      :contentReference[oaicite:1]{index=1}
+#    • Sec.3.3  : “Ringing & overshoot artifacts” - Sinc filter (Eq. 6, Fig. 5)       :contentReference[oaicite:2]{index=2}
+#    • Sec.4.1  : “Degradation details” - 커널 확률·크기·σ·β 값 세팅                  :contentReference[oaicite:3]{index=3}
+# -----------------------------------------------------------------------------------
 def real_degradation(opt, sf=1):
+    """
+    Real-ESRGAN 학습용 ‘2-order degradation’ 중
+    👉 Blur_k1 → Blur_k2 → (최종) Sinc Filter
+       를 합성해 주는 함수.  (Fig. 2 참조)
+    """
 
+    # ---------- 1차(degradation #1)의 Blur 파라미터 ----------  (Sec.3.1 + Sec.4.1)
     blur_kernel_size = opt['blur_kernel_size']
     kernel_list = opt['kernel_list']
     kernel_prob = opt['kernel_prob']  # a list for each kernel probability
@@ -290,7 +304,7 @@ def real_degradation(opt, sf=1):
     betap_range = opt['betap_range']  # betap used in plateau blur kernels
     sinc_prob = opt['sinc_prob']
 
-     # blur settings for the second degradation
+    # ---------- 2차(degradation #2)의 Blur 파라미터 ----------  (Sec.3.2, “second order”)
     blur_kernel_size2 = opt['blur_kernel_size2']
     kernel_list2 = opt['kernel_list2']
     kernel_prob2 = opt['kernel_prob2']
@@ -299,9 +313,12 @@ def real_degradation(opt, sf=1):
     betap_range2 = opt['betap_range2']
     sinc_prob2 = opt['sinc_prob2']
 
-    # a final sinc filter
+    # ---------- 최종 Sinc 필터 확률 ----------------------------  (Sec.3.3, “We adopt sinc filters in two places”)
     final_sinc_prob = opt['final_sinc_prob']
 
+    # --------------------------------------------------------------------------------
+    #  Stage-independent 준비: 21×21 pulse(δ)커널 · 커널크기 후보(7~21)  (Sec.4.1 기본 설정)
+    # --------------------------------------------------------------------------------
     pulse_tensor = torch.zeros(21, 21).float()  # convolving with pulse tensor brings no blurry effect
     pulse_tensor[10, 10] = 1
     kernel_range = [2 * v + 1 for v in range(3, 11)]  # kernel size ranges from 7 to 21
@@ -311,6 +328,7 @@ def real_degradation(opt, sf=1):
     #     # img_H = utils_image.unsharp_mask(img_H, amount=0.5, threshold=0)
     #     img_H = utils_image.usm_sharp(img_H, weight=0.4, threshold=15)
     
+    # =============================== 1) 첫 번째 Blur 커널 k1 ===============================  (Eq. 5 의 D₁ 구성)
     kernel_size = random.choice(kernel_range)
     if np.random.uniform() < sinc_prob:
         # this sinc filter setting is for kernels ranging from [7, 21]
@@ -333,7 +351,7 @@ def real_degradation(opt, sf=1):
     pad_size = (21 - kernel_size) // 2
     kernel = np.pad(kernel, ((pad_size, pad_size), (pad_size, pad_size)))
 
-
+    # =============================== 2) 두 번째 Blur 커널 k2 ===============================  (Eq. 5 의 D₂ 구성)
     kernel_size = random.choice(kernel_range)
     if np.random.uniform() < sinc_prob2:
         if kernel_size < 13:
@@ -357,6 +375,7 @@ def real_degradation(opt, sf=1):
     kernel2 = np.pad(kernel2, ((pad_size, pad_size), (pad_size, pad_size)))
 
 
+    # =============================== 3) 최종 Sinc 필터 (rings/overshoot) ====================  (Sec.3.3)
     # ------------------------------------- the final sinc kernel ------------------------------------- #
     if np.random.uniform() < final_sinc_prob:
         kernel_size = random.choice(kernel_range)
@@ -366,5 +385,7 @@ def real_degradation(opt, sf=1):
     else:
         sinc_kernel = pulse_tensor
 
-
+    # --------------------------------------------------------------------------------
+    # 반환:  (k1, k2, k_sinc)  - 실제 합성 파이프라인에서 Conv → Resize → Noise → JPEG 순으로 사용
+    # --------------------------------------------------------------------------------
     return kernel, kernel2, sinc_kernel

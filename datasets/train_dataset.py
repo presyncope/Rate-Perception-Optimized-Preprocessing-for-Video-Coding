@@ -11,8 +11,7 @@ from utils import utils_image, utils_deblur, utils_sisr
 TRAIN_DATA_LIST_FILENAME = "flicker_div_data_patch_list.txt"
 
 class TrainDataset_real(Dataset):
-
-    def __init__(self, config, opt):
+    def __init__(self, config: dict, opt: dict):
         super().__init__()
 
         self.opt = opt
@@ -198,8 +197,7 @@ class TrainDataset_real_paired(Dataset):
 
 
 class TrainDataset(Dataset):
-
-    def __init__(self, config, opt):
+    def __init__(self, config: dict, opt: dict):
         super().__init__()
 
         self.opt = opt

@@ -22,7 +22,7 @@ from torch.utils.tensorboard import SummaryWriter
 ### python -m torch.distributed.launch --nproc_per_node=2 --master_port=45678 train_pre.py -c configs/default.yaml
 
 class Trainer:
-    def __init__(self, rank, world_size, config, degradation_config):
+    def __init__(self, rank: int, world_size: int, config: dict, degradation_config: dict):
         self.config = config
         self.degradation_config = degradation_config
 
@@ -38,7 +38,7 @@ class Trainer:
     #         # self.log('Initializing writer')
     #         self.writer = SummaryWriter(self.config["output_dir"])
 
-    def init_distributed(self, rank, world_size):
+    def init_distributed(self, rank: int, world_size: int):
         self.rank = rank
         self.world_size = world_size
         torch.cuda.set_device(self.rank % self.world_size)
@@ -48,7 +48,6 @@ class Trainer:
         torch.dist.destroy_process_group()
 
     def init_datasets(self):
-        
         if self.config['degradation_type'] == 'real':
             print(".......... real degradation ..............")
             self.train_set = TrainDataset_real(self.config, self.degradation_config)
@@ -318,8 +317,8 @@ class Trainer:
                     self.L, self.H = self.real_degradations(batch)
                     self.train_loss(epoch, current_step)
                 else:
-                    self.L = batch["L"].to(device)  # low-quality image
-                    self.H = batch["H"].to(device)
+                    self.L = batch["L"].to(self.device)  # low-quality image
+                    self.H = batch["H"].to(self.device)
                     self.train_loss(epoch, current_step)
 
                 if current_step % self.config["steps_val"] == 0 and self.rank == 0:
@@ -488,7 +487,6 @@ class Trainer:
 
 
 if __name__ == "__main__":
-
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '45678'
     gpu_list = ",".join(str(x) for x in DEFAULT_CONFIG["gpus"])

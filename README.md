@@ -1,16 +1,20 @@
 # Rate-Perception Optimized Preprocessing for Video Coding
 
 ## Training
+
 1. Modify the configuration in **config.py** or `configs/default.yaml`.
 2. `python train.py`
 
 ## Convert ONNX
+
 1. `python scripts/convert_onnx.py`
 
 ## Inference
+
 1. `python inference.py`
 
 ## Setting up DVC Remote and Pulling Datasets
+
 This project stores training data with [DVC](https://dvc.org/). Configure a remote and pull the data before training:
 
 ```bash
@@ -26,6 +30,7 @@ dvc pull
 ```
 
 ## Running the Prefect Flow
+
 Training and evaluation can be orchestrated with [Prefect](https://www.prefect.io/):
 
 ```bash
@@ -39,6 +44,7 @@ prefect deployment run train-flow/main
 Adjust the configuration paths as needed before running the flow.
 
 ## Accessing Experiment Results via MLflow
+
 Experiments are tracked with [MLflow](https://mlflow.org/). To browse results:
 
 ```bash
